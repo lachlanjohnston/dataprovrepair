@@ -1,0 +1,155 @@
+{% load bootstrap4 %}
+<head>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+
+<body>
+    {% comment %} <h1>hi</h1> {% endcomment %}
+
+    <div class="container text-center">
+    <br />
+    <br />
+        <h2 id="fd_text">ZIP -> City, State</h2>
+        <br />
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-md-offset-2">
+                <table class="table" id="repair">
+                    {% comment %} <colgroup>
+                        <col class="table-danger"></col>
+                        <col class="table-danger"></col>
+                        <col ></col>
+                    </colgroup> {% endcomment %}
+                    <thead>
+                        {% comment %} <tr>
+                        <th scope="col">City</th>
+                        <th scope="col">State</th>
+                        <th scope="col">ZIP</th>
+                        <th scope="col">Confidence</th>
+                        </tr> {% endcomment %}
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+                <br />
+                <button type="button" class="btn btn-danger" id="skip">Ignore</button>
+                <button type="button" class="btn btn-warning" id="override">Override</button>
+                <button type="button" class="btn btn-success" id="select" onclick="select_repair()">Select</button>
+                <br />
+
+                
+            </div>
+        </div>
+        </div>
+</body>
+
+<script>
+
+    var selected = 0;
+    var options;
+
+    function buildHeader(attributes, done) {
+        let elems = attributes.map(attr => '<th>' + attr + '</th>');
+        if (!done) {
+            elems.push('<th>Cardinality</th>');
+            elems.push('<th>Confidence</th>');
+        }
+        $('#repair thead').append(elems);
+    }
+
+    function select(e) {
+        selected = $(this).index();
+        $("tr").removeClass("table-info");
+        $(this).addClass("table-info");
+    }
+
+    function buildTuples(tuples) {
+        tuples.map(t => {
+            var tr = $("<tr>").appendTo($("#repair tbody"));
+            var values = t.map(i => "<td>" + i + "</td>")
+            tr.append(values);
+        })
+    }
+
+    function buildTable(attributes, attributes_effected, proposal, n_attrs) {
+        let proposals = [];
+        let lhs = proposal.lhs;
+        let rhs = proposal.rhs_attrs;
+        
+        proposal.alts.map((a, i) => {
+            let elems = Array(attributes_effected.length);
+            proposal.lhs_attrs.map((a, j) => elems[a - n_attrs] = "<td>" + lhs[j] + "</td>" );
+            
+            a.map((prop, j) => elems[rhs[j] - n_attrs] = "<td>" + a[0] + "</td>");
+            elems.push("<td>" + a[1] + "</td>" + "<td>" + a[2] + "</td>");
+
+            proposals.push(elems)
+        })
+
+        
+        proposals.map((p, i) => { 
+            var tr = $("<tr>").appendTo($("#repair tbody"));
+
+            if (i == 0)
+                tr.addClass("table-info");
+
+            tr.append(p)
+            tr.click(select);
+        });
+        {% comment %} $("#repair tbody").append(tr); {% endcomment %}
+        console.log(proposals);
+    }
+
+    var repairSocket = new WebSocket(
+        'ws://' + window.location.host +
+        '/ws/repair/'
+    )
+    
+    repairSocket.onmessage = function (e) {
+        var data = JSON.parse(e.data);
+
+        if (data.type == 'proposal') {
+
+            $('#repair thead').empty();
+            $('#repair tbody').empty();
+
+            var attributes_effected = data.attributes.filter((e, i) => data.data.lhs_attrs.includes(i) || data.data.rhs_attrs.includes(i));
+            var n_attrs = data.attributes.length - attributes_effected.length;
+
+            buildHeader(attributes_effected, false);
+            buildTable(data.attributes, attributes_effected, data.data, n_attrs);
+
+            options = data.data.alts;
+
+            {% comment %} $("#select").click(select_repair); {% endcomment %}
+        } 
+
+        if (data.type == 'done') {
+            $('#repair thead').empty();
+            $('#repair tbody').empty();
+
+            $('button').remove();
+
+            $('#fd_text').html("Finished!");
+
+            buildHeader(data.attributes, true);
+            buildTuples(data.tuples);
+        }
+    }
+
+    function select_repair() {
+        console.log(options[selected]);
+
+        repairSocket.send(JSON.stringify({
+            'type': 'repair',
+            'selection': options[selected]
+        }))
+    } 
+
+    repairSocket.onclose = function(e) {
+        console.error('repairSocket closed unexpectedly');
+    };
+</script>
