@@ -151,6 +151,30 @@ class Repair:
                 
         return sorted(proposal_sets, key = lambda t: t['max_conf'])
 
+
+    def delta_conflict_graph(self, fds, delta):
+        cg = list()
+        for fd in fds:
+            for t1, t2 in itertools.product(tuples_2, delta):
+    #             print(t1, t2)
+                if not fd.satisfied(t1, t2):
+                    cg.append(( fd, int(t1[idx]), int(t2[idx]) ))
+        
+        cg += conflict_graph(delta, fds)
+        return cg
+
+    def smart_conflict_graph(self, fds, delta, prov_cg):
+        delta_cg = delta_conflict_graph(fds, delta)
+        ids = set([ (x, y) for _, x, y in delta_cg ])
+        
+        merged_cg = delta_cg
+        
+        for fd, x, y in prov_cg:
+            if x in ids or y in ids:
+                merged_cg.append((fd, x, y))
+                
+        return merged_cg
+
     def replace(self, proposal, selection):
         print(proposal)
         for t in self.tuples:

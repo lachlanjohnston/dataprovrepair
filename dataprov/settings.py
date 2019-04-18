@@ -25,7 +25,7 @@ SECRET_KEY = '%r#@fk2i-_k-pv@b0atlwupqe%u)-e)q!v4m=f9=4wni=&n=c3'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['34.74.153.161']
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -33,7 +33,6 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 # Application definition
 
 INSTALLED_APPS = [
-    'bootstrap4',
     'channels',
     'django.contrib.admin',
     'django.contrib.auth',

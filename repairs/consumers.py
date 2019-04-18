@@ -17,7 +17,8 @@ class RepairConsumer(WebsocketConsumer):
         self.send(json.dumps({
             'type': 'proposal',
             'attributes': self.repair_instance.attributes,
-            'data': self.proposed[0]
+            'data': self.proposed[0],
+            'left': len(self.proposed)
         }))
         print(self.proposed[0])
 
@@ -33,6 +34,18 @@ class RepairConsumer(WebsocketConsumer):
         if selection['type'] == 'repair':
             self.repair_instance.replace(self.proposed[0], selection['selection'])
 
+            self.proposed.pop(0)
+
+            if len(self.proposed):
+                self.send_proposed()
+            else:
+                self.send(json.dumps({
+                    'type': 'done',
+                    'attributes': self.repair_instance.attributes,
+                    'tuples': self.repair_instance.tuples
+                }))
+
+        if selection['type'] == 'ignore':
             self.proposed.pop(0)
 
             if len(self.proposed):
